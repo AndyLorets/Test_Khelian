@@ -29,7 +29,6 @@ public sealed class PlayerMover : MonoBehaviour
 
     private Vector2 _localUp = Vector2.up;
     private Vector2 _localRight = Vector2.right;
-    private Edge _currentEdge = Edge.Top;
 
     private ContactPoint2D[] _contacts = new ContactPoint2D[10];
     private ContactFilter2D _groundContactFilter = new ContactFilter2D();
@@ -93,33 +92,48 @@ public sealed class PlayerMover : MonoBehaviour
         _groundContactFilter.layerMask = _config.GroundLayer;
     }
 
-    private void UpdateCurrentPlatform()
+private void UpdateCurrentPlatform()
+{
+    float searchRadius = 5f; 
+    Collider2D[] nearbyPlatforms = Physics2D.OverlapCircleAll(transform.position, searchRadius, _config.GroundLayer);
+
+    if (nearbyPlatforms.Length == 0) return;
+
+    Collider2D closest = null;
+    float minDistance = float.MaxValue;
+
+    foreach (var platform in nearbyPlatforms)
     {
-        int count = _rigidbody.GetContacts(_groundContactFilter, _contacts);
-        for (int i = 0; i < count; i++)
+        Vector2 closestPoint = platform.ClosestPoint(transform.position);
+        float distance = Vector2.Distance(transform.position, closestPoint);
+
+        if (distance < minDistance)
         {
-            if (_contacts[i].collider != null)
-            {
-                _currentPlatform = _contacts[i].collider;
-                break;
-            }
+            minDistance = distance;
+            closest = platform;
         }
     }
 
+    if (closest != null)
+    {
+        _currentPlatform = closest;
+    }
+}
     private void UpdateLocalFrame()
     {
-        if (_currentPlatform == null) return; 
+    if (_currentPlatform == null) return;
 
+    Vector2 pos = _rigidbody.position;
+    Vector2 center = _currentPlatform.bounds.center;
+    
+    if (_currentPlatform is CircleCollider2D)
+    {
+        _localUp = (pos - center).normalized;
+        _localRight = new Vector2(_localUp.y, -_localUp.x);
+    }
+    else
+    {
         Bounds b = _currentPlatform.bounds;
-        Vector2 pos = _rigidbody.position;
-
-        if (!_isGroundedThisStep)
-        {
-            float distanceFromSurface = SignedDistanceFromCurrentEdge(pos, b);
-            if (distanceFromSurface > _config.EdgeStickThreshold) return;
-        }
-
-        Vector2 center = b.center;
         float dx = pos.x - center.x;
         float dy = pos.y - center.y;
         float nx = Mathf.Abs(dx) / Mathf.Max(b.extents.x, 0.0001f);
@@ -131,25 +145,12 @@ public sealed class PlayerMover : MonoBehaviour
 
         switch (edge)
         {
-            case Edge.Top: _localUp = Vector2.up; _localRight = Vector2.right; break;
-            case Edge.Right: _localUp = Vector2.right; _localRight = Vector2.down; break;
-            case Edge.Bottom: _localUp = Vector2.down; _localRight = Vector2.left; break;
-            case Edge.Left: _localUp = Vector2.left; _localRight = Vector2.up; break;
-        }
-
-        if (edge != _currentEdge)
-        {
-            _currentEdge = edge;
+            case Edge.Top:    _localUp = Vector2.up;    _localRight = Vector2.right; break;
+            case Edge.Right:  _localUp = Vector2.right; _localRight = Vector2.down;  break;
+            case Edge.Bottom: _localUp = Vector2.down;  _localRight = Vector2.left;  break;
+            case Edge.Left:   _localUp = Vector2.left;  _localRight = Vector2.up;    break;
         }
     }
-
-    private float SignedDistanceFromCurrentEdge(Vector2 pos, Bounds platformBounds)
-    {
-        Vector2 center = platformBounds.center;
-        float halfExtentAlongUp = Mathf.Abs(_localUp.x) * platformBounds.extents.x
-                                + Mathf.Abs(_localUp.y) * platformBounds.extents.y;
-        float projection = Vector2.Dot(pos - center, _localUp);
-        return projection - halfExtentAlongUp - _collider.radius;
     }
 
     private void ApplyGravity()
