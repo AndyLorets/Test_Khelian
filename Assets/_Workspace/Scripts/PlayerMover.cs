@@ -2,39 +2,18 @@ using UnityEngine;
 
 public sealed class PlayerMover : MonoBehaviour
 {
-    private const float min_angular_velocity = 2.8f;
-
-    [SerializeField] private Rigidbody2D _rigidbody;
-    [SerializeField] private CircleCollider2D _collider;
-    [SerializeField] private Collider2D _platform;
-
+    [SerializeField] private PlayerConfigSO _config;
     [SerializeField] private MonoBehaviour _inputSource;
-
-    [Space(5)]    
-    [SerializeField] private float _jumpHeight = 2f;
-    [SerializeField] private float _jumpTime = 0.35f;
-    [SerializeField] private float _maxLinearVelocityInJump = 5f;
-    [SerializeField] private float _timeToMaxLinearVelocityInJump = 0.4f;
-    [SerializeField] private float _maxAngularVelocityInJump = 8f;
-    [SerializeField] private float _timeToMaxAngularVelocityInJump = 0.4f;
-    [SerializeField] private float _velocityAffectionFactorOnJump = 1f;
-
-    [Space(5)]
-    [Min(0f),SerializeField] private float _maxLinearVelocity = 6f;
-    [Min(0.01f), SerializeField] private float _timeToMaxLinearVelocity = 0.2f;
-
-    [Space(5)]
-    [SerializeField] private LayerMask _groundLayer;
-    [SerializeField] private float _checkGroundTimer = 0.12f; 
-    [SerializeField] private float _groundSlope = 15f;
-    [SerializeField] private float _edgeStickThreshold = 0.6f;
-
+    private Rigidbody2D _rigidbody;
+    private CircleCollider2D _collider;
     private IInputProvider _inputListener;
     private float _axisInput;
-   [SerializeField]  private bool _jumpButtonPressed;
-    [SerializeField] private bool _isReadyToJump = true;
+    private bool _jumpButtonPressed;
+    private bool _isReadyToJump = true;
     private float _groundCheckerTime;
-   [SerializeField]  private bool _isGroundedThisStep;
+    private bool _isGroundedThisStep;
+
+    private Collider2D _currentPlatform;
 
     private float _gravityForce;
     private float _jumpImpulseVelocity;
@@ -52,7 +31,7 @@ public sealed class PlayerMover : MonoBehaviour
     private Vector2 _localRight = Vector2.right;
     private Edge _currentEdge = Edge.Top;
 
-    private Collider2D[] _groundCollidersInContact = new Collider2D[1];
+    private ContactPoint2D[] _contacts = new ContactPoint2D[10];
     private ContactFilter2D _groundContactFilter = new ContactFilter2D();
 
     private enum Edge { Top, Bottom, Left, Right }
@@ -61,7 +40,9 @@ public sealed class PlayerMover : MonoBehaviour
 
     private void Awake()
     {
-        _inputListener = _inputSource as IInputProvider;          
+        _inputListener = _inputSource as IInputProvider;
+        _rigidbody = GetComponent<Rigidbody2D>();
+        _collider = GetComponent<CircleCollider2D>();
         _rigidbody.gravityScale = 0f;
 
         CalculateJumpSettings();
@@ -78,6 +59,7 @@ public sealed class PlayerMover : MonoBehaviour
 
     private void FixedUpdate()
     {
+        UpdateCurrentPlatform(); 
         _isGroundedThisStep = IsGrounded();
 
         UpdateLocalFrame();
@@ -89,39 +71,52 @@ public sealed class PlayerMover : MonoBehaviour
 
     private void CalculateJumpSettings()
     {
-        float requiredAccel = (2f * _jumpHeight) / Mathf.Pow(_jumpTime, 2f);
+        float requiredAccel = (2f * _config.JumpHeight) / Mathf.Pow(_config.JumpTime, 2f);
         _gravityForce = requiredAccel * _rigidbody.mass;
-        _jumpImpulseVelocity = requiredAccel * _jumpTime;
+        _jumpImpulseVelocity = requiredAccel * _config.JumpTime;
 
-        _linearAccelerationInJump = _maxLinearVelocityInJump / _timeToMaxLinearVelocityInJump;
-        _angularAccelerationInJump = _maxAngularVelocityInJump / _timeToMaxAngularVelocityInJump;
+        _linearAccelerationInJump = _config.MaxLinearVelocityInJump / _config.TimeToMaxLinearVelocityInJump;
+        _angularAccelerationInJump = _config.MaxAngularVelocityInJump / _config.TimeToMaxAngularVelocityInJump;
     }
 
     private void CalculateMovementSettings()
     {
-        _linearAcceleration = _maxLinearVelocity / _timeToMaxLinearVelocity;
-        _maxAngularVelocity = _maxLinearVelocity / _collider.radius;
-        _angularAcceleration = (_maxAngularVelocity - min_angular_velocity) / _timeToMaxLinearVelocity;
+        _linearAcceleration = _config.MaxLinearVelocity / _config.TimeToMaxLinearVelocity;
+        _maxAngularVelocity = _config.MaxLinearVelocity / _collider.radius;
+        _angularAcceleration = (_maxAngularVelocity - _config.MinAngularVelocity) / _config.TimeToMaxLinearVelocity;
     }
 
     private void CalculateGroundCheckingSettings()
     {
-        _groundContactFilter.useNormalAngle = true;
+        _groundContactFilter.useNormalAngle = false;
         _groundContactFilter.useLayerMask = true;
-        _groundContactFilter.layerMask = _groundLayer;
+        _groundContactFilter.layerMask = _config.GroundLayer;
+    }
+
+    private void UpdateCurrentPlatform()
+    {
+        int count = _rigidbody.GetContacts(_groundContactFilter, _contacts);
+        for (int i = 0; i < count; i++)
+        {
+            if (_contacts[i].collider != null)
+            {
+                _currentPlatform = _contacts[i].collider;
+                break;
+            }
+        }
     }
 
     private void UpdateLocalFrame()
     {
-        if (_platform == null) return;
+        if (_currentPlatform == null) return; 
 
-        Bounds b = _platform.bounds;
+        Bounds b = _currentPlatform.bounds;
         Vector2 pos = _rigidbody.position;
 
         if (!_isGroundedThisStep)
         {
             float distanceFromSurface = SignedDistanceFromCurrentEdge(pos, b);
-            if (distanceFromSurface > _edgeStickThreshold) return;
+            if (distanceFromSurface > _config.EdgeStickThreshold) return;
         }
 
         Vector2 center = b.center;
@@ -136,16 +131,15 @@ public sealed class PlayerMover : MonoBehaviour
 
         switch (edge)
         {
-            case Edge.Top:    _localUp = Vector2.up;    _localRight = Vector2.right; break;
-            case Edge.Right:  _localUp = Vector2.right; _localRight = Vector2.down;  break;
-            case Edge.Bottom: _localUp = Vector2.down;  _localRight = Vector2.left;  break;
-            case Edge.Left:   _localUp = Vector2.left;  _localRight = Vector2.up;    break;
+            case Edge.Top: _localUp = Vector2.up; _localRight = Vector2.right; break;
+            case Edge.Right: _localUp = Vector2.right; _localRight = Vector2.down; break;
+            case Edge.Bottom: _localUp = Vector2.down; _localRight = Vector2.left; break;
+            case Edge.Left: _localUp = Vector2.left; _localRight = Vector2.up; break;
         }
 
         if (edge != _currentEdge)
         {
             _currentEdge = edge;
-            RefreshGroundFilterForEdge();
         }
     }
 
@@ -156,15 +150,6 @@ public sealed class PlayerMover : MonoBehaviour
                                 + Mathf.Abs(_localUp.y) * platformBounds.extents.y;
         float projection = Vector2.Dot(pos - center, _localUp);
         return projection - halfExtentAlongUp - _collider.radius;
-    }
-
-    private void RefreshGroundFilterForEdge()
-    {
-        float angle = Mathf.Atan2(_localUp.y, _localUp.x) * Mathf.Rad2Deg;
-        if (angle < 0f) angle += 360f;
-
-        _groundContactFilter.minNormalAngle = Mathf.Repeat(angle - _groundSlope, 360f);
-        _groundContactFilter.maxNormalAngle = Mathf.Repeat(angle + _groundSlope, 360f);
     }
 
     private void ApplyGravity()
@@ -193,21 +178,32 @@ public sealed class PlayerMover : MonoBehaviour
 
     private void MoveOnGround()
     {
-        _rigidbody.GetContacts(_groundContactFilter, _groundCollidersInContact);
-        Collider2D groundCollider = _groundCollidersInContact[0];
+        int count = _rigidbody.GetContacts(_groundContactFilter, _contacts);
+        Collider2D groundCollider = null;
+        float minDot = Mathf.Cos(_config.GroundSlope * Mathf.Deg2Rad);
+
+        for (int i = 0; i < count; i++)
+        {
+            if (Vector2.Dot(_contacts[i].normal, _localUp) >= minDot)
+            {
+                groundCollider = _contacts[i].collider;
+                break;
+            }
+        }
+
         float groundFriction = groundCollider != null ? groundCollider.friction : 0f;
         float ballFriction = _rigidbody.sharedMaterial != null ? _rigidbody.sharedMaterial.friction : 0f;
         float slippingCoefficient = Mathf.Sqrt(ballFriction * groundFriction);
         float slippingForce = slippingCoefficient * _gravityForce;
 
-        ChangeLinearVelocity(_maxLinearVelocity, _linearAcceleration, slippingForce);
+        ChangeLinearVelocity(_config.MaxLinearVelocity, _linearAcceleration, slippingForce);
         ChangeAngularVelocity(_maxAngularVelocity, _angularAcceleration, slippingForce);
     }
 
     private void MoveInJump()
     {
-        ChangeLinearVelocity(_maxLinearVelocityInJump, _linearAccelerationInJump, 0f);
-        ChangeAngularVelocity(_maxAngularVelocityInJump, _angularAccelerationInJump, 0f);
+        ChangeLinearVelocity(_config.MaxLinearVelocityInJump, _linearAccelerationInJump, 0f);
+        ChangeAngularVelocity(_config.MaxAngularVelocityInJump, _angularAccelerationInJump, 0f);
     }
 
     private void ChangeLinearVelocity(float maxLinearVelocity, float defaultLinearAcceleration, float slippingForce)
@@ -262,11 +258,11 @@ public sealed class PlayerMover : MonoBehaviour
 
         if (currentVelocityUp > 0 && _jumpImpulseVelocity > currentVelocityUp)
         {
-            actualJumpImpulseVelocity = _jumpImpulseVelocity - (currentVelocityUp * _velocityAffectionFactorOnJump);
+            actualJumpImpulseVelocity = _jumpImpulseVelocity - (currentVelocityUp * _config.VelocityAffectionFactorOnJump);
         }
         else if (_jumpImpulseVelocity <= currentVelocityUp)
         {
-            actualJumpImpulseVelocity = _jumpImpulseVelocity * (1f - _velocityAffectionFactorOnJump);
+            actualJumpImpulseVelocity = _jumpImpulseVelocity * (1f - _config.VelocityAffectionFactorOnJump);
         }
 
         float impulseScalar = actualJumpImpulseVelocity * _rigidbody.mass;
@@ -279,10 +275,22 @@ public sealed class PlayerMover : MonoBehaviour
 
     private bool IsGrounded()
     {
-        bool onGround = _rigidbody.IsTouching(_groundContactFilter);
+        int count = _rigidbody.GetContacts(_groundContactFilter, _contacts);
+        float minDot = Mathf.Cos(_config.GroundSlope * Mathf.Deg2Rad);
+        bool onGround = false;
+
+        for (int i = 0; i < count; i++)
+        {
+            if (Vector2.Dot(_contacts[i].normal, _localUp) >= minDot)
+            {
+                onGround = true;
+                break;
+            }
+        }
+
         if (onGround)
         {
-            _groundCheckerTime = _checkGroundTimer;
+            _groundCheckerTime = _config.CheckGroundTimer;
             return true;
         }
 
@@ -292,9 +300,9 @@ public sealed class PlayerMover : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        if (_platform == null) return;
+        if (_currentPlatform == null) return; 
         Gizmos.color = Color.cyan;
-        Gizmos.DrawLine(transform.position, _platform.bounds.center);
+        Gizmos.DrawLine(transform.position, _currentPlatform.bounds.center);
 
         Gizmos.color = Color.green;
         Gizmos.DrawRay(transform.position, _localUp * 1.5f);
