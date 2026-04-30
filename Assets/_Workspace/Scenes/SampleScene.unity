@@ -905,6 +905,9 @@ MonoBehaviour:
   _target: {fileID: 658238924}
   _smoothTime: 0.15
   _zOffset: -10
+  _useBounds: 1
+  _minBounds: {x: 0, y: -3}
+  _maxBounds: {x: 30, y: 3}
 --- !u!1 &653350737
 GameObject:
   m_ObjectHideFlags: 0
@@ -1106,7 +1109,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMover
   _config: {fileID: 11400000, guid: 243b2ea002d0a314888edaf5d9431cd0, type: 2}
-  _inputSource: {fileID: 336255357}
+  _inputSource: {fileID: 1336122259}
 --- !u!50 &658238926
 Rigidbody2D:
   serializedVersion: 5
@@ -1196,7 +1199,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 873348764}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -1317,7 +1320,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1128745288}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -1511,8 +1514,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1336122258}
+  - component: {fileID: 1336122259}
   m_Layer: 0
-  m_Name: Input
+  m_Name: GameInputManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1535,6 +1539,22 @@ Transform:
   - {fileID: 1817845826}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1336122259
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1336122257}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4bb4fc2d1386a6e45a9cef0f4eb498dc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameInputManager
+  _inputMode: 0
+  _keyboardProvider: {fileID: 336255357}
+  _touchProvider: {fileID: 1817845827}
+  _touchUIContainer: {fileID: 1411687264}
 --- !u!1 &1411687264
 GameObject:
   m_ObjectHideFlags: 0
@@ -1548,7 +1568,7 @@ GameObject:
   - component: {fileID: 1411687266}
   - component: {fileID: 1411687265}
   m_Layer: 5
-  m_Name: Canvas
+  m_Name: MobileInput_Canvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1731,7 +1751,7 @@ GameObject:
   - component: {fileID: 1439322896}
   - component: {fileID: 1439322895}
   m_Layer: 3
-  m_Name: Ground_Box (1)
+  m_Name: Ground_Box
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1883,7 +1903,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1482629974}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0

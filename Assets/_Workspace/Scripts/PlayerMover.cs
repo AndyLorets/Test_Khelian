@@ -1,5 +1,5 @@
 using UnityEngine;
-
+[RequireComponent(typeof(Rigidbody2D), typeof(CircleCollider2D))]
 public sealed class PlayerMover : MonoBehaviour
 {
     [SerializeField] private PlayerConfigSO _config;
@@ -14,6 +14,7 @@ public sealed class PlayerMover : MonoBehaviour
     private bool _isGroundedThisStep;
 
     private Collider2D _currentPlatform;
+    private Collider2D[] _platformBuffer = new Collider2D[10]; 
 
     private float _gravityForce;
     private float _jumpImpulseVelocity;
@@ -56,17 +57,17 @@ public sealed class PlayerMover : MonoBehaviour
         _axisInput = _inputListener.GetHorizontalAxis();
     }
 
-    private void FixedUpdate()
-    {
-        UpdateCurrentPlatform(); 
-        _isGroundedThisStep = IsGrounded();
+private void FixedUpdate()
+{
+    UpdateCurrentPlatform(); 
+    UpdateLocalFrame();     
+    _isGroundedThisStep = IsGrounded(); 
 
-        UpdateLocalFrame();
-        ApplyGravity();
-        PrepareToJump();
-        Move();
-        if (CanJump) Jump();
-    }
+    ApplyGravity();
+    PrepareToJump();
+    Move();
+    if (CanJump) Jump();
+}
 
     private void CalculateJumpSettings()
     {
@@ -95,15 +96,16 @@ public sealed class PlayerMover : MonoBehaviour
 private void UpdateCurrentPlatform()
 {
     float searchRadius = 5f; 
-    Collider2D[] nearbyPlatforms = Physics2D.OverlapCircleAll(transform.position, searchRadius, _config.GroundLayer);
+     int count = Physics2D.OverlapCircle(transform.position, searchRadius, _groundContactFilter, _platformBuffer);
 
-    if (nearbyPlatforms.Length == 0) return;
+    if (count == 0) return;
 
     Collider2D closest = null;
     float minDistance = float.MaxValue;
 
-    foreach (var platform in nearbyPlatforms)
+    for (int i = 0; i < count; i++)
     {
+        Collider2D platform = _platformBuffer[i];
         Vector2 closestPoint = platform.ClosestPoint(transform.position);
         float distance = Vector2.Distance(transform.position, closestPoint);
 
